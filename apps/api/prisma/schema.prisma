@@ -1,0 +1,178 @@
+// Prisma schema — multi-tenant SaaS for Facebook auto-reply.
+// Every domain entity carries a `tenantId` so that future Phase-2
+// billing & team features can be layered on without a refactor.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  pages         FacebookPage[]
+  rules         Rule[]
+  conversations Conversation[]
+  aiConfig      AiConfig?
+}
+
+model User {
+  id            String   @id @default(cuid())
+  tenantId      String
+  email         String   @unique
+  passwordHash  String
+  name          String?
+  role          UserRole @default(OWNER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model FacebookPage {
+  id                String   @id @default(cuid())
+  tenantId          String
+  // Facebook's stable Page ID (e.g. 1234567890)
+  fbPageId          String   @unique
+  name              String
+  // Long-lived page access token. Encrypted-at-rest in production
+  // (left plain here for the MVP — see README "Security TODOs").
+  pageAccessToken   String
+  category          String?
+  pictureUrl        String?
+  webhookSubscribed Boolean  @default(false)
+  connectedAt       DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@index([tenantId])
+}
+
+model Rule {
+  id               String        @id @default(cuid())
+  tenantId         String
+  name             String
+  enabled          Boolean       @default(true)
+  channel          RuleChannel   @default(BOTH)
+  matchType        RuleMatchType @default(CONTAINS)
+  keywords         String[]
+  caseSensitive    Boolean       @default(false)
+  responseTemplate String        @db.Text
+  priority         Int           @default(0)
+  cooldownSeconds  Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, enabled, priority])
+}
+
+enum RuleChannel {
+  COMMENT
+  MESSAGE
+  BOTH
+}
+
+enum RuleMatchType {
+  EXACT
+  CONTAINS
+  STARTS_WITH
+  REGEX
+}
+
+model AiConfig {
+  id            String   @id @default(cuid())
+  tenantId      String   @unique
+  enabled       Boolean  @default(false)
+  provider      String   @default("openai")
+  model         String   @default("gpt-4o-mini")
+  systemPrompt  String   @db.Text
+  maxTokens     Int      @default(300)
+  temperature   Float    @default(0.7)
+  fallbackOnly  Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model Conversation {
+  id              String             @id @default(cuid())
+  tenantId        String
+  pageId          String
+  channel         EventChannel
+  // External identifier: comment_id, post_id, or PSID (page-scoped user ID)
+  externalId      String
+  customerName    String?
+  customerHandle  String?
+  status          ConversationStatus @default(OPEN)
+  lastMessageAt   DateTime           @default(now())
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  page     FacebookPage   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  events   ReplyEvent[]
+
+  @@unique([pageId, externalId])
+  @@index([tenantId, status, lastMessageAt])
+}
+
+enum EventChannel {
+  COMMENT
+  MESSAGE
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+  SNOOZED
+}
+
+model ReplyEvent {
+  id              String           @id @default(cuid())
+  conversationId  String
+  direction       EventDirection
+  source          ReplySource
+  inboundText     String?          @db.Text
+  outboundText    String?          @db.Text
+  matchedRuleId   String?
+  errorMessage    String?          @db.Text
+  fbMessageId     String?
+  createdAt       DateTime         @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+enum EventDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum ReplySource {
+  RULE
+  AI
+  MANUAL
+  NONE
+}
