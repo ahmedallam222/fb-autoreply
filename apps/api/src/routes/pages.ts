@@ -11,6 +11,7 @@ import {
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
 import { encrypt } from '../lib/crypto.js';
+import { canConnectAnotherPage } from '../lib/billing.js';
 
 export const pagesRouter = Router();
 
@@ -53,6 +54,22 @@ pagesRouter.post('/manual', writeGate, async (req: Request, res: Response) => {
     return;
   }
   const { pageId, pageName, pageAccessToken } = parsed.data;
+
+  // Block adding new pages once the tenant hits their plan's page limit.
+  // Re-connecting an *existing* page is fine — that's an idempotent update.
+  const existing = await prisma.facebookPage.findUnique({ where: { fbPageId: pageId } });
+  if (!existing || existing.tenantId !== req.auth!.tid) {
+    const cap = await canConnectAnotherPage(req.auth!.tid);
+    if (!cap.ok) {
+      res.status(402).json({
+        error: cap.reason,
+        plan: cap.plan,
+        limit: cap.limit,
+        upgradeUrl: '/dashboard/billing',
+      });
+      return;
+    }
+  }
 
   let webhookSubscribed = false;
   try {
@@ -122,7 +139,23 @@ pagesRouter.get('/oauth/callback', writeGate, async (req: Request, res: Response
     const pages = await getUserPages(long.access_token);
 
     let connected = 0;
+    let skippedDueToPlan = 0;
     for (const p of pages) {
+      const existing = await prisma.facebookPage.findUnique({ where: { fbPageId: p.id } });
+      // Re-connect (same fbPageId already in our DB for this tenant) is
+      // always allowed; it just refreshes the token. New pages count
+      // against the plan limit.
+      if (!existing || existing.tenantId !== req.auth!.tid) {
+        const cap = await canConnectAnotherPage(req.auth!.tid);
+        if (!cap.ok) {
+          skippedDueToPlan += 1;
+          logger.info(
+            { tenantId: req.auth!.tid, pageId: p.id, plan: cap.plan, limit: cap.limit },
+            'oauth_callback_page_skipped_plan_limit',
+          );
+          continue;
+        }
+      }
       let webhookSubscribed = false;
       try {
         const r = await subscribePageWebhooks(p.id, p.access_token);
@@ -151,14 +184,17 @@ pagesRouter.get('/oauth/callback', writeGate, async (req: Request, res: Response
       });
       connected += 1;
     }
-    res.redirect(`${env.PUBLIC_WEB_URL}/dashboard/pages?connected=${connected}`);
+    res.redirect(
+      `${env.PUBLIC_WEB_URL}/dashboard/pages?connected=${connected}` +
+        (skippedDueToPlan > 0 ? `&skippedPlanLimit=${skippedDueToPlan}` : ''),
+    );
   } catch (err) {
     logger.error({ err }, 'oauth_callback_failed');
     res.status(500).json({ error: 'oauth_failed', message: (err as Error).message });
   }
 });
 
-pagesRouter.delete('/:id', async (req: Request, res: Response) => {
+pagesRouter.delete('/:id', writeGate, async (req: Request, res: Response) => {
   const id = req.params.id;
   if (!id) {
     res.status(400).json({ error: 'missing_id' });

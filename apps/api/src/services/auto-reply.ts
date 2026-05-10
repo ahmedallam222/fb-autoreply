@@ -5,6 +5,7 @@ import { findMatchingRule } from '../lib/rules-engine.js';
 import { generateAiReply } from '../lib/openai-client.js';
 import { replyToComment, sendMessengerMessage, GraphApiError } from '../lib/facebook.js';
 import { acquireOutboundSlot } from '../lib/rate-limiter.js';
+import { canSendReply } from '../lib/billing.js';
 import {
   isWithinWorkingHours,
   validateSchedule,
@@ -26,7 +27,12 @@ export type AutoReplyOutcome =
   | { kind: 'replied'; source: 'RULE' | 'AI' | 'OOO'; reply: string; fbMessageId?: string }
   | {
       kind: 'skipped';
-      reason: 'self_event' | 'empty_text' | 'no_match_no_ai' | 'outside_working_hours';
+      reason:
+        | 'self_event'
+        | 'empty_text'
+        | 'no_match_no_ai'
+        | 'outside_working_hours'
+        | 'plan_reply_limit_reached';
     }
   | { kind: 'error'; reason: string };
 
@@ -147,6 +153,19 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
 
   if (!replyText || !source) {
     return { kind: 'skipped', reason: 'no_match_no_ai' };
+  }
+
+  // Plan / quota check. We do this AFTER deciding what we'd reply but
+  // BEFORE the rate-limiter slot + Graph call so that a tenant who hit
+  // their monthly quota stops burning Graph API calls. Free-tier customers
+  // who run out simply stop replying for the rest of the calendar month.
+  const planCheck = await canSendReply(event.tenantId);
+  if (!planCheck.ok) {
+    logger.info(
+      { tenantId: event.tenantId, plan: planCheck.plan },
+      'reply_skipped_plan_limit_reached',
+    );
+    return { kind: 'skipped', reason: 'plan_reply_limit_reached' };
   }
 
   // Per-tenant outbound throttle so a runaway tenant can't get our app

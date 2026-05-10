@@ -51,6 +51,30 @@ const envSchema = z.object({
   // but if you ever scale to >1 instance you MUST set this to false on all
   // but one instance to avoid duplicate emails.
   NOTIFICATIONS_SCHEDULER_ENABLED: z.coerce.boolean().default(true),
+
+  // Stripe billing. All optional — if STRIPE_SECRET_KEY is empty the billing
+  // routes return 503 and the auto-reply pipeline does NOT enforce limits
+  // (so local dev keeps working without a Stripe account). Use Stripe's
+  // test-mode keys (sk_test_…, whsec_…) in non-production environments.
+  STRIPE_SECRET_KEY: z.string().optional().default(''),
+  STRIPE_WEBHOOK_SECRET: z.string().optional().default(''),
+  // Price IDs for the Pro and Business tiers. Create these once in your
+  // Stripe Dashboard → Products and paste the `price_…` IDs here.
+  STRIPE_PRICE_ID_PRO: z.string().optional().default(''),
+  STRIPE_PRICE_ID_BUSINESS: z.string().optional().default(''),
+
+  // Plan limits. All positive integers. -1 means "unlimited".
+  PLAN_FREE_REPLY_LIMIT: z.coerce.number().int().default(200),
+  PLAN_FREE_PAGE_LIMIT: z.coerce.number().int().default(1),
+  PLAN_PRO_REPLY_LIMIT: z.coerce.number().int().default(5_000),
+  PLAN_PRO_PAGE_LIMIT: z.coerce.number().int().default(5),
+  PLAN_BUSINESS_REPLY_LIMIT: z.coerce.number().int().default(-1),
+  PLAN_BUSINESS_PAGE_LIMIT: z.coerce.number().int().default(-1),
+
+  // Display-only USD prices, shown in the dashboard's pricing UI. The
+  // authoritative price lives in Stripe — these are just for the upgrade card.
+  PLAN_PRO_PRICE_USD: z.coerce.number().int().default(19),
+  PLAN_BUSINESS_PRICE_USD: z.coerce.number().int().default(49),
 });
 
 const parsed = envSchema.safeParse(process.env);
