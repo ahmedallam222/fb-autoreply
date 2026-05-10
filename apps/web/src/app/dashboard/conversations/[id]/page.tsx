@@ -22,6 +22,7 @@ interface ReplyEvent {
   aiModel: string | null;
   aiPromptTokens: number | null;
   aiCompletionTokens: number | null;
+  detectedLanguage: string | null;
   createdAt: string;
 }
 
@@ -95,6 +96,14 @@ function EventCard({ ev }: { ev: ReplyEvent }) {
           {ev.kind === 'PRIVATE_REPLY' && (
             <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-800">
               private reply
+            </span>
+          )}
+          {isInbound && ev.detectedLanguage && (
+            <span
+              title="Detected inbound language"
+              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-100 text-sky-800 normal-case"
+            >
+              {ev.detectedLanguage}
             </span>
           )}
           {ev.errorMessage && (
