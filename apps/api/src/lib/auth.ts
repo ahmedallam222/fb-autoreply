@@ -46,3 +46,23 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     res.status(401).json({ error: 'invalid_token' });
   }
 }
+
+export type Role = 'OWNER' | 'ADMIN' | 'MEMBER';
+
+/**
+ * Middleware factory that requires the caller to have one of the given roles.
+ * Always combine with requireAuth (this middleware reads req.auth).
+ */
+export function requireRole(...allowed: Role[]) {
+  return function roleGate(req: Request, res: Response, next: NextFunction): void {
+    if (!req.auth) {
+      res.status(401).json({ error: 'unauthenticated' });
+      return;
+    }
+    if (!allowed.includes(req.auth.role as Role)) {
+      res.status(403).json({ error: 'forbidden', requiredRoles: allowed });
+      return;
+    }
+    next();
+  };
+}

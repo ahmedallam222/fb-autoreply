@@ -13,6 +13,7 @@ import { conversationsRouter } from './routes/conversations.js';
 import { analyticsRouter } from './routes/analytics.js';
 import { workingHoursRouter } from './routes/working-hours.js';
 import { notificationsRouter } from './routes/notifications.js';
+import { teamRouter } from './routes/team.js';
 import { startNotificationScheduler } from './services/notifications.js';
 
 const app = express();
@@ -66,6 +67,7 @@ app.use('/api/conversations', apiLimiter, conversationsRouter);
 app.use('/api/analytics', apiLimiter, analyticsRouter);
 app.use('/api/working-hours', apiLimiter, workingHoursRouter);
 app.use('/api/notifications', apiLimiter, notificationsRouter);
+app.use('/api/team', apiLimiter, teamRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'not_found', path: req.path });
