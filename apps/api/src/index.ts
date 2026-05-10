@@ -11,6 +11,7 @@ import { rulesRouter } from './routes/rules.js';
 import { aiRouter } from './routes/ai.js';
 import { conversationsRouter } from './routes/conversations.js';
 import { analyticsRouter } from './routes/analytics.js';
+import { workingHoursRouter } from './routes/working-hours.js';
 
 const app = express();
 
@@ -61,6 +62,7 @@ app.use('/api/rules', apiLimiter, rulesRouter);
 app.use('/api/ai', apiLimiter, aiRouter);
 app.use('/api/conversations', apiLimiter, conversationsRouter);
 app.use('/api/analytics', apiLimiter, analyticsRouter);
+app.use('/api/working-hours', apiLimiter, workingHoursRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'not_found', path: req.path });

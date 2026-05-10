@@ -17,6 +17,21 @@ model Tenant {
   // Set once when the user finishes the onboarding wizard. Null means
   // they should be redirected to /dashboard/onboarding on next login.
   onboardedAt  DateTime?
+
+  // Working hours (out-of-office) configuration. When `workingHoursEnabled`
+  // is true and the current time (in `timezone`) falls outside the
+  // `workingHours` schedule, the auto-reply pipeline either sends the
+  // `oooMessage` (if non-empty) or skips the reply entirely. See
+  // src/lib/working-hours.ts for the schedule shape and matching logic.
+  workingHoursEnabled Boolean @default(false)
+  // IANA timezone, e.g. "Africa/Cairo". Defaults to UTC.
+  timezone            String  @default("UTC")
+  // Per-day open/close ranges, shape: { mon: { open: "09:00", close: "18:00" }, ... }
+  // null entry for a day = closed all day.
+  workingHours        Json?
+  // Sent verbatim outside working hours. Empty/null = stay silent.
+  oooMessage          String? @db.Text
+
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -183,6 +198,7 @@ enum EventDirection {
 enum ReplySource {
   RULE
   AI
+  OOO
   MANUAL
   NONE
 }

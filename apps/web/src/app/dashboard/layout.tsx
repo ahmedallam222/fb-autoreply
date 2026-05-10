@@ -13,6 +13,7 @@ const navItems = [
   { href: '/dashboard/conversations', label: 'Conversations' },
   { href: '/dashboard/analytics', label: 'Analytics' },
   { href: '/dashboard/ai', label: 'AI fallback' },
+  { href: '/dashboard/working-hours', label: 'Working hours' },
 ];
 
 interface MeResponse {
