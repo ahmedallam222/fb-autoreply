@@ -49,6 +49,10 @@ export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Pro
     const errObj = data as { error?: string; details?: unknown };
     throw new ApiError(errObj.error ?? `HTTP ${res.status}`, res.status, errObj.details);
   }
+  // 204 No Content (and any other empty body) — there is nothing to parse.
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return undefined as T;
+  }
   return (await res.json()) as T;
 }
 
