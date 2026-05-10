@@ -11,6 +11,7 @@ const baseRule: RuleCandidate = {
   caseSensitive: false,
   responseTemplate: 'Pricing info: example.com',
   priority: 0,
+  alsoDmOnComment: false,
 };
 
 test('renderTemplate replaces variables and tolerates whitespace', () => {
@@ -82,6 +83,16 @@ test('Variables are substituted into the rendered template', () => {
     variables: { first_name: 'Ahmed' },
   });
   assert.equal(r?.rendered, 'Hi Ahmed, see prices.');
+});
+
+test('Match exposes the rule\'s alsoDmOnComment flag so the pipeline can act on it', () => {
+  const dmRule: RuleCandidate = { ...baseRule, id: 'dm', alsoDmOnComment: true };
+  const r = findMatchingRule({ text: 'price', channel: 'COMMENT', rules: [dmRule] });
+  assert.equal(r?.rule.alsoDmOnComment, true);
+
+  const noDmRule: RuleCandidate = { ...baseRule, id: 'no-dm', alsoDmOnComment: false };
+  const r2 = findMatchingRule({ text: 'price', channel: 'COMMENT', rules: [noDmRule] });
+  assert.equal(r2?.rule.alsoDmOnComment, false);
 });
 
 test('Arabic keyword match works', () => {

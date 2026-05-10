@@ -10,6 +10,7 @@ export type RuleCandidate = Pick<
   | 'caseSensitive'
   | 'responseTemplate'
   | 'priority'
+  | 'alsoDmOnComment'
 >;
 
 export interface RuleMatchResult {
