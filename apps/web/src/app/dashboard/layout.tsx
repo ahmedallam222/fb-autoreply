@@ -10,6 +10,7 @@ const navItems = [
   { href: '/dashboard/pages', label: 'Pages' },
   { href: '/dashboard/rules', label: 'Rules' },
   { href: '/dashboard/conversations', label: 'Conversations' },
+  { href: '/dashboard/analytics', label: 'Analytics' },
   { href: '/dashboard/ai', label: 'AI fallback' },
 ];
 

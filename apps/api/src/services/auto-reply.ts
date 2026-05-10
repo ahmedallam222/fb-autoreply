@@ -79,6 +79,7 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
   let replyText: string | null = null;
   let source: 'RULE' | 'AI' | null = null;
   let matchedRuleId: string | null = null;
+  let aiUsage: { model: string; promptTokens: number; completionTokens: number } | null = null;
 
   if (match) {
     replyText = match.rendered;
@@ -95,8 +96,9 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
         temperature: aiCfg.temperature,
       });
       if (ai) {
-        replyText = ai;
+        replyText = ai.text;
         source = 'AI';
+        aiUsage = { model: ai.model, promptTokens: ai.promptTokens, completionTokens: ai.completionTokens };
       }
     }
   }
@@ -123,6 +125,9 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
         outboundText: replyText,
         matchedRuleId,
         fbMessageId,
+        aiModel: aiUsage?.model,
+        aiPromptTokens: aiUsage?.promptTokens,
+        aiCompletionTokens: aiUsage?.completionTokens,
       },
     });
 
@@ -138,6 +143,9 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
         outboundText: replyText,
         matchedRuleId,
         errorMessage: msg,
+        aiModel: aiUsage?.model,
+        aiPromptTokens: aiUsage?.promptTokens,
+        aiCompletionTokens: aiUsage?.completionTokens,
       },
     });
     return { kind: 'error', reason: msg };

@@ -18,7 +18,14 @@ export interface AiReplyParams {
   temperature: number;
 }
 
-export async function generateAiReply(params: AiReplyParams): Promise<string | null> {
+export interface AiReplyResult {
+  text: string;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+}
+
+export async function generateAiReply(params: AiReplyParams): Promise<AiReplyResult | null> {
   const client = getClient();
   if (!client) {
     logger.debug('openai_disabled_no_key');
@@ -35,7 +42,13 @@ export async function generateAiReply(params: AiReplyParams): Promise<string | n
       ],
     });
     const text = completion.choices[0]?.message?.content?.trim();
-    return text && text.length > 0 ? text : null;
+    if (!text || text.length === 0) return null;
+    return {
+      text,
+      model: completion.model ?? params.model,
+      promptTokens: completion.usage?.prompt_tokens ?? 0,
+      completionTokens: completion.usage?.completion_tokens ?? 0,
+    };
   } catch (err) {
     logger.warn({ err }, 'openai_request_failed');
     return null;
