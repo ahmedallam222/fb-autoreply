@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../lib/auth.js';
+import { requireAuth, requireRole } from '../lib/auth.js';
 import { logger } from '../config/logger.js';
 import {
   DEFAULT_SCHEDULE,
@@ -12,6 +12,9 @@ import {
 
 export const workingHoursRouter = Router();
 workingHoursRouter.use(requireAuth);
+
+/** Writes require OWNER or ADMIN; reads are open to any tenant member. */
+const writeGate = requireRole('OWNER', 'ADMIN');
 
 const HHMM_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const dayRangeSchema = z
@@ -57,7 +60,7 @@ workingHoursRouter.get('/', async (req: Request, res: Response) => {
 });
 
 /** PUT — replace the full config. */
-workingHoursRouter.put('/', async (req: Request, res: Response) => {
+workingHoursRouter.put('/', writeGate, async (req: Request, res: Response) => {
   const parsed = putSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });

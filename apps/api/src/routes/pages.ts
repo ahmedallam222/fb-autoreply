@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { pageConnectInputSchema } from '@fb-autoreply/shared';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../lib/auth.js';
+import { requireAuth, requireRole } from '../lib/auth.js';
 import {
   exchangeCodeForUserToken,
   exchangeForLongLivedUserToken,
@@ -15,6 +15,12 @@ import { encrypt } from '../lib/crypto.js';
 export const pagesRouter = Router();
 
 pagesRouter.use(requireAuth);
+
+/**
+ * Connecting / disconnecting a Facebook page is a tenant-wide action that
+ * affects every member. Restrict to OWNER or ADMIN.
+ */
+const writeGate = requireRole('OWNER', 'ADMIN');
 
 /** List pages connected to the current tenant. */
 pagesRouter.get('/', async (req: Request, res: Response) => {
@@ -40,7 +46,7 @@ pagesRouter.get('/', async (req: Request, res: Response) => {
  * the OAuth flow. Pass the pageId, name, and a long-lived page access token
  * obtained via the Graph API Explorer.
  */
-pagesRouter.post('/manual', async (req: Request, res: Response) => {
+pagesRouter.post('/manual', writeGate, async (req: Request, res: Response) => {
   const parsed = pageConnectInputSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'invalid_input', details: parsed.error.flatten() });
@@ -78,7 +84,7 @@ pagesRouter.post('/manual', async (req: Request, res: Response) => {
 });
 
 /** Begin Facebook OAuth — returns the URL for the user to visit. */
-pagesRouter.get('/oauth/url', (_req: Request, res: Response) => {
+pagesRouter.get('/oauth/url', writeGate, (_req: Request, res: Response) => {
   if (!env.FB_APP_ID) {
     res.status(503).json({ error: 'fb_app_not_configured' });
     return;
@@ -102,7 +108,7 @@ pagesRouter.get('/oauth/url', (_req: Request, res: Response) => {
  * For the MVP this is a synchronous redirect-based flow. For production
  * we'd want a `state` param tied to the user's session.
  */
-pagesRouter.get('/oauth/callback', async (req: Request, res: Response) => {
+pagesRouter.get('/oauth/callback', writeGate, async (req: Request, res: Response) => {
   const code = typeof req.query.code === 'string' ? req.query.code : null;
   if (!code) {
     res.status(400).json({ error: 'missing_code' });
