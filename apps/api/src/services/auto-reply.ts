@@ -11,6 +11,7 @@ import {
 } from '../lib/facebook.js';
 import { acquireOutboundSlot } from '../lib/rate-limiter.js';
 import { canSendReply } from '../lib/billing.js';
+import { detectLanguage, languageDisplayName } from '../lib/lang-detect.js';
 import {
   isWithinWorkingHours,
   validateSchedule,
@@ -53,6 +54,10 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
   const text = event.text?.trim() ?? '';
   if (!text) return { kind: 'skipped', reason: 'empty_text' };
 
+  // Detect the language up front so we can both store it on the inbound
+  // ReplyEvent (analytics) and feed it into the AI fallback below.
+  const detectedLanguage = detectLanguage(text);
+
   const conversation = await prisma.conversation.upsert({
     where: {
       pageId_externalId: { pageId: event.pageDbId, externalId: event.externalId },
@@ -78,6 +83,7 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
       direction: 'INBOUND',
       source: 'NONE',
       inboundText: text,
+      detectedLanguage,
     },
   });
 
@@ -146,8 +152,15 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
     } else {
       const aiCfg = await prisma.aiConfig.findUnique({ where: { tenantId: event.tenantId } });
       if (aiCfg?.enabled) {
+        // When enabled, prepend a one-line language hint so the model
+        // replies in the same language we detected. We don't trust the
+        // user's system prompt to do this on its own — some prompts are
+        // English-only and the customer comments in Arabic.
+        const systemPrompt = aiCfg.matchInboundLanguage
+          ? `${aiCfg.systemPrompt}\n\nReply in ${languageDisplayName(detectedLanguage)}.`
+          : aiCfg.systemPrompt;
         const ai = await generateAiReply({
-          systemPrompt: aiCfg.systemPrompt,
+          systemPrompt,
           userMessage: text,
           model: aiCfg.model,
           maxTokens: aiCfg.maxTokens,

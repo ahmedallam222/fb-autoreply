@@ -13,6 +13,7 @@ interface AiConfig {
   temperature: number;
   fallbackOnly: boolean;
   alsoDmOnComment: boolean;
+  matchInboundLanguage: boolean;
 }
 interface AiResponse {
   aiConfig: AiConfig | null;
@@ -28,6 +29,7 @@ const defaults: AiConfig = {
   temperature: 0.7,
   fallbackOnly: true,
   alsoDmOnComment: false,
+  matchInboundLanguage: true,
 };
 
 export default function AiPage() {
@@ -116,6 +118,22 @@ export default function AiPage() {
             />
           </label>
         </div>
+
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={cfg.matchInboundLanguage}
+            onChange={(e) => setCfg({ ...cfg, matchInboundLanguage: e.target.checked })}
+            className="mt-1"
+          />
+          <span>
+            <span className="text-sm">Auto-detect language and reply in the same one</span>
+            <span className="block text-xs text-slate-500">
+              Detects Arabic vs English on every inbound message and asks the AI to reply
+              in that language. Off = the AI follows the system prompt&rsquo;s default language.
+            </span>
+          </span>
+        </label>
 
         <label className="flex items-start gap-2">
           <input

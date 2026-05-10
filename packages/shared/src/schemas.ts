@@ -32,6 +32,11 @@ export const aiConfigSchema = z.object({
   fallbackOnly: z.boolean().default(true),
   // Same idea as Rule.alsoDmOnComment, but for AI fallback replies.
   alsoDmOnComment: z.boolean().default(false),
+  // When true (default), the auto-reply pipeline detects whether the
+  // inbound message is in Arabic or English and asks the AI to reply
+  // in the same language. Disable to keep the system prompt's preferred
+  // language verbatim.
+  matchInboundLanguage: z.boolean().default(true),
 });
 
 export type AiConfigInput = z.infer<typeof aiConfigSchema>;
