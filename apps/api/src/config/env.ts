@@ -35,6 +35,22 @@ const envSchema = z.object({
   API_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(300),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+
+  // Email notifications. If SMTP_HOST is empty the mailer is a no-op (only
+  // logs what it would have sent). All four SMTP_* vars are required to
+  // actually send.
+  SMTP_HOST: z.string().optional().default(''),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional().default(''),
+  SMTP_PASS: z.string().optional().default(''),
+  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_FROM: z.string().optional().default('fb-autoreply <noreply@example.com>'),
+
+  // When false, the in-process notification scheduler does NOT start. Use
+  // this on read-replica / web-only / Lambda deployments. Defaults to true,
+  // but if you ever scale to >1 instance you MUST set this to false on all
+  // but one instance to avoid duplicate emails.
+  NOTIFICATIONS_SCHEDULER_ENABLED: z.coerce.boolean().default(true),
 });
 
 const parsed = envSchema.safeParse(process.env);

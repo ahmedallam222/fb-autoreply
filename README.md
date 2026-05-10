@@ -184,14 +184,28 @@ The API will subscribe the page to webhooks for you.
 
 - [ ] Stripe / Paymob billing (subscription tiers, usage metering)
 - [ ] Team members + RBAC (OWNER / ADMIN / MEMBER)
-- [ ] Encrypted-at-rest page access tokens
-- [ ] Rate limiting + queueing (BullMQ + Redis)
-- [ ] Working hours / out-of-office
+- [x] Encrypted-at-rest page access tokens (AES-256-GCM)
+- [~] Rate limiting (per-IP for auth, per-tenant outbound) — queueing with BullMQ + Redis is still future
+- [x] Working hours / out-of-office (per-tenant timezone-aware schedule)
+- [x] Email notifications (error-spike alert + daily digest)
 - [ ] Per-rule analytics + conversation transcripts UI
 - [ ] App Review submission docs + screencast
 - [ ] Multi-language detection
 - [ ] Auto-DM ("we just sent you a private message")
 - [x] Privacy Policy + Terms + Data Deletion Instructions (see _Meta App Review prep_ below)
+
+### Email notifications
+
+- Configure SMTP via the `SMTP_*` env vars in `apps/api/.env`. Postmark, SendGrid,
+  AWS SES, and Gmail (with an app password, for testing) all work.
+- The in-process scheduler ticks every 5 minutes. It evaluates two alerts per tenant:
+  - **Error spike**: if ≥10 outbound replies were attempted in the last hour and ≥30%
+    failed, send an email and start a 1-hour cooldown.
+  - **Daily digest**: once per UTC day, around 09:00 UTC, send a summary email
+    (replies sent, errors, top rules, AI cost).
+- **Single-instance only.** If you ever scale to >1 API instance, set
+  `NOTIFICATIONS_SCHEDULER_ENABLED=false` on every instance except one.
+  A future rev should move this onto a queue (BullMQ) keyed by tenant.
 
 ---
 

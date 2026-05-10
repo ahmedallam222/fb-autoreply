@@ -12,6 +12,8 @@ import { aiRouter } from './routes/ai.js';
 import { conversationsRouter } from './routes/conversations.js';
 import { analyticsRouter } from './routes/analytics.js';
 import { workingHoursRouter } from './routes/working-hours.js';
+import { notificationsRouter } from './routes/notifications.js';
+import { startNotificationScheduler } from './services/notifications.js';
 
 const app = express();
 
@@ -63,6 +65,7 @@ app.use('/api/ai', apiLimiter, aiRouter);
 app.use('/api/conversations', apiLimiter, conversationsRouter);
 app.use('/api/analytics', apiLimiter, analyticsRouter);
 app.use('/api/working-hours', apiLimiter, workingHoursRouter);
+app.use('/api/notifications', apiLimiter, notificationsRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'not_found', path: req.path });
@@ -70,4 +73,5 @@ app.use((req, res) => {
 
 app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, env: env.NODE_ENV }, 'api_listening');
+  startNotificationScheduler();
 });
