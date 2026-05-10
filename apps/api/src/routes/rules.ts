@@ -3,9 +3,18 @@ import { ruleSchema } from '@fb-autoreply/shared';
 import type { RuleChannel, RuleMatchType } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../lib/auth.js';
+import { RULE_TEMPLATES } from '../lib/rule-templates.js';
 
 export const rulesRouter = Router();
 rulesRouter.use(requireAuth);
+
+/**
+ * Preset rule templates shown in the onboarding wizard.
+ * Static — does not hit the database.
+ */
+rulesRouter.get('/templates', (_req: Request, res: Response) => {
+  res.json({ templates: RULE_TEMPLATES });
+});
 
 rulesRouter.get('/', async (req: Request, res: Response) => {
   const rules = await prisma.rule.findMany({

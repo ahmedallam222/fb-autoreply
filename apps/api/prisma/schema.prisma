@@ -12,10 +12,13 @@ datasource db {
 }
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(cuid())
+  name         String
+  // Set once when the user finishes the onboarding wizard. Null means
+  // they should be redirected to /dashboard/onboarding on next login.
+  onboardedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   users         User[]
   pages         FacebookPage[]

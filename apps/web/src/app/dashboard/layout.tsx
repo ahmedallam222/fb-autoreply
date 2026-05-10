@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { clearToken, getToken } from '@/lib/api';
+import useSWR from 'swr';
+import { clearToken, getToken, swrFetcher } from '@/lib/api';
 
 const navItems = [
   { href: '/dashboard', label: 'Overview' },
@@ -14,6 +15,11 @@ const navItems = [
   { href: '/dashboard/ai', label: 'AI fallback' },
 ];
 
+interface MeResponse {
+  user: { email: string; name: string | null };
+  tenant: { id: string; name: string; onboardedAt: string | null };
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -21,6 +27,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!getToken()) router.replace('/login');
   }, [router]);
+
+  // Send first-time users through the onboarding wizard.
+  const { data: me } = useSWR<MeResponse>(getToken() ? '/api/auth/me' : null, swrFetcher);
+  useEffect(() => {
+    if (me && !me.tenant.onboardedAt) router.replace('/onboarding');
+  }, [me, router]);
 
   function logout() {
     clearToken();

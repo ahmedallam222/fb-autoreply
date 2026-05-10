@@ -71,7 +71,28 @@ authRouter.get('/me', requireAuth, async (req: Request, res: Response) => {
     res.status(404).json({ error: 'not_found' });
     return;
   }
-  res.json({ user: publicUser(user), tenant: { id: user.tenant.id, name: user.tenant.name } });
+  res.json({
+    user: publicUser(user),
+    tenant: {
+      id: user.tenant.id,
+      name: user.tenant.name,
+      onboardedAt: user.tenant.onboardedAt,
+    },
+  });
+});
+
+/**
+ * Mark the current tenant as onboarded so future logins skip the wizard.
+ * Idempotent — safe to call multiple times.
+ */
+authRouter.post('/complete-onboarding', requireAuth, async (req: Request, res: Response) => {
+  const tenantId = req.auth!.tid;
+  const tenant = await prisma.tenant.update({
+    where: { id: tenantId },
+    data: { onboardedAt: new Date() },
+    select: { id: true, name: true, onboardedAt: true },
+  });
+  res.json({ tenant });
 });
 
 function publicUser(u: { id: string; email: string; name: string | null; role: string; tenantId: string }) {
