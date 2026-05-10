@@ -10,6 +10,7 @@ import {
 } from '../lib/facebook.js';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
+import { encrypt } from '../lib/crypto.js';
 
 export const pagesRouter = Router();
 
@@ -55,19 +56,20 @@ pagesRouter.post('/manual', async (req: Request, res: Response) => {
     logger.warn({ err }, 'webhook_subscribe_failed_during_manual_connect');
   }
 
+  const encryptedToken = encrypt(pageAccessToken);
   const page = await prisma.facebookPage.upsert({
     where: { fbPageId: pageId },
     create: {
       tenantId: req.auth!.tid,
       fbPageId: pageId,
       name: pageName,
-      pageAccessToken,
+      pageAccessToken: encryptedToken,
       webhookSubscribed,
     },
     update: {
       tenantId: req.auth!.tid,
       name: pageName,
-      pageAccessToken,
+      pageAccessToken: encryptedToken,
       webhookSubscribed,
     },
   });
@@ -122,6 +124,7 @@ pagesRouter.get('/oauth/callback', async (req: Request, res: Response) => {
       } catch (err) {
         logger.warn({ err, pageId: p.id }, 'webhook_subscribe_failed');
       }
+      const encryptedToken = encrypt(p.access_token);
       await prisma.facebookPage.upsert({
         where: { fbPageId: p.id },
         create: {
@@ -129,14 +132,14 @@ pagesRouter.get('/oauth/callback', async (req: Request, res: Response) => {
           fbPageId: p.id,
           name: p.name,
           category: p.category,
-          pageAccessToken: p.access_token,
+          pageAccessToken: encryptedToken,
           webhookSubscribed,
         },
         update: {
           tenantId: req.auth!.tid,
           name: p.name,
           category: p.category,
-          pageAccessToken: p.access_token,
+          pageAccessToken: encryptedToken,
           webhookSubscribed,
         },
       });

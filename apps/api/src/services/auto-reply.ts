@@ -4,6 +4,7 @@ import { logger } from '../config/logger.js';
 import { findMatchingRule } from '../lib/rules-engine.js';
 import { generateAiReply } from '../lib/openai-client.js';
 import { replyToComment, sendMessengerMessage, GraphApiError } from '../lib/facebook.js';
+import { acquireOutboundSlot } from '../lib/rate-limiter.js';
 
 export interface InboundEvent {
   tenantId: string;
@@ -105,6 +106,27 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
 
   if (!replyText || !source) {
     return { kind: 'skipped', reason: 'no_match_no_ai' };
+  }
+
+  // Per-tenant outbound throttle so a runaway tenant can't get our app
+  // blocked by Meta. If we can't get a slot in 30s we drop the reply
+  // and log it as an error event.
+  const allowed = await acquireOutboundSlot(event.tenantId);
+  if (!allowed) {
+    await prisma.replyEvent.create({
+      data: {
+        conversationId: conversation.id,
+        direction: 'OUTBOUND',
+        source,
+        outboundText: replyText,
+        matchedRuleId,
+        errorMessage: 'rate_limited_outbound',
+        aiModel: aiUsage?.model,
+        aiPromptTokens: aiUsage?.promptTokens,
+        aiCompletionTokens: aiUsage?.completionTokens,
+      },
+    });
+    return { kind: 'error', reason: 'rate_limited_outbound' };
   }
 
   try {

@@ -221,13 +221,33 @@ You will also need:
 
 ---
 
-## Security TODOs (before production)
+## Security & rate-limiting (Phase 2)
 
-- Encrypt `FacebookPage.pageAccessToken` (e.g. AES-GCM with `KMS_KEY`).
+Already in place:
+
+- **Page Access Tokens encrypted at rest** — AES-256-GCM with a random IV per
+  encryption. Set `TOKEN_ENCRYPTION_KEY=$(openssl rand -hex 32)` in production.
+  In development a fallback dev key is used if the env var is unset (with a
+  loud warning at boot). Tokens written before this PR are still readable —
+  they're stored as plaintext and transparently decrypted; new writes are
+  always encrypted.
+- **Per-IP rate limiting** on `/api/auth/*` (default 10 req/min) and the rest
+  of the API (default 300 req/min). Webhook endpoints are excluded — they're
+  signature-verified by Meta.
+- **Per-tenant outbound reply throttle** — token-bucket limiter (default 30
+  replies / burst, refilling at 0.5/sec) so a runaway tenant can't get the
+  entire app blocked by Meta. Throttled replies are logged with
+  `errorMessage='rate_limited_outbound'` so they show up in the analytics
+  error count.
+
+Still TODO before production:
+
+- Replace the in-process throttle + rate limiter with Redis (BullMQ /
+  rate-limiter-flexible) when scaling beyond a single API instance.
 - Rotate JWT signing key + add refresh tokens.
 - Replace in-memory token storage on the web with secure cookies.
-- Add rate limits to `/api/auth/*` endpoints.
 - Add a `state` parameter to the OAuth callback tied to the user's session.
+- Wrap `TOKEN_ENCRYPTION_KEY` in a managed KMS (AWS KMS, GCP KMS, Vault).
 
 ---
 
