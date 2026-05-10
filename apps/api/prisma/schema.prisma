@@ -41,6 +41,7 @@ model Tenant {
   conversations          Conversation[]
   aiConfig               AiConfig?
   notificationPreference NotificationPreference?
+  invites                Invite[]
 }
 
 model User {
@@ -55,7 +56,30 @@ model User {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  invitesCreated Invite[] @relation("InviteCreator")
+
   @@index([tenantId])
+}
+
+model Invite {
+  id          String    @id @default(cuid())
+  tenantId    String
+  email       String
+  role        UserRole  @default(MEMBER)
+  // Random 32-byte hex token used in the accept-invite link. Index because
+  // we lookup by token at accept time.
+  token       String    @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("InviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, acceptedAt])
+  @@index([email])
 }
 
 enum UserRole {
