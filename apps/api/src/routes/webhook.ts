@@ -5,6 +5,7 @@ import { logger } from '../config/logger.js';
 import { prisma } from '../lib/prisma.js';
 import { verifyWebhookSignature } from '../lib/facebook.js';
 import { processInboundEvent } from '../services/auto-reply.js';
+import { readMaybeEncrypted } from '../lib/crypto.js';
 import type { FacebookWebhookPayload } from '@fb-autoreply/shared';
 
 export const webhookRouter = Router();
@@ -58,6 +59,14 @@ webhookRouter.post('/facebook', rawJson, async (req: Request, res: Response) => 
       continue;
     }
 
+    let pageAccessToken: string;
+    try {
+      pageAccessToken = readMaybeEncrypted(page.pageAccessToken);
+    } catch (err) {
+      logger.error({ err, fbPageId }, 'page_token_decrypt_failed');
+      continue;
+    }
+
     // Comments arrive in `changes`
     for (const change of entry.changes ?? []) {
       if (change.field !== 'feed') continue;
@@ -71,7 +80,7 @@ webhookRouter.post('/facebook', rawJson, async (req: Request, res: Response) => 
         await processInboundEvent({
           tenantId: page.tenantId,
           pageDbId: page.id,
-          pageAccessToken: page.pageAccessToken,
+          pageAccessToken,
           channel: 'COMMENT',
           text: v.message,
           externalId: v.comment_id,
@@ -92,7 +101,7 @@ webhookRouter.post('/facebook', rawJson, async (req: Request, res: Response) => 
         await processInboundEvent({
           tenantId: page.tenantId,
           pageDbId: page.id,
-          pageAccessToken: page.pageAccessToken,
+          pageAccessToken,
           channel: 'MESSAGE',
           text: m.message.text,
           externalId: m.sender.id,
