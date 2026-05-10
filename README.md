@@ -171,12 +171,19 @@ The API will subscribe the page to webhooks for you.
 
 ---
 
-## Deployment notes
+## Deployment
 
-- **Hosting**: Railway / Render / Fly.io are all great. The API needs HTTPS and a public URL.
-- **Database**: managed Postgres (Neon, Supabase, Railway).
-- **Set secrets** for `DATABASE_URL`, `JWT_SECRET`, `FB_APP_ID`, `FB_APP_SECRET`, `FB_VERIFY_TOKEN`, optionally `OPENAI_API_KEY`.
-- Run `npx prisma migrate deploy` (after switching from `db push` to migrations) on each deploy.
+See [`DEPLOY.md`](./DEPLOY.md) for a step-by-step Railway guide (api + web
++ Postgres in ~10 minutes).
+
+The repo ships `apps/api/railway.json` and `apps/web/railway.json` so
+Railway picks up the right build/start commands automatically. Other
+hosts (Render, Fly.io, Vercel for the web app) work too — the api just
+needs HTTPS, a public URL, and a managed Postgres connection string.
+
+Required secrets at minimum: `DATABASE_URL`, `JWT_SECRET`,
+`TOKEN_ENCRYPTION_KEY`, `FB_APP_ID`, `FB_APP_SECRET`, `FB_VERIFY_TOKEN`.
+Optional: `OPENAI_API_KEY`, `STRIPE_*`, `SMTP_*`.
 
 ---
 
