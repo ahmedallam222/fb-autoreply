@@ -5,6 +5,11 @@ import { findMatchingRule } from '../lib/rules-engine.js';
 import { generateAiReply } from '../lib/openai-client.js';
 import { replyToComment, sendMessengerMessage, GraphApiError } from '../lib/facebook.js';
 import { acquireOutboundSlot } from '../lib/rate-limiter.js';
+import {
+  isWithinWorkingHours,
+  validateSchedule,
+  type WorkingHoursSchedule,
+} from '../lib/working-hours.js';
 
 export interface InboundEvent {
   tenantId: string;
@@ -18,8 +23,11 @@ export interface InboundEvent {
 }
 
 export type AutoReplyOutcome =
-  | { kind: 'replied'; source: 'RULE' | 'AI'; reply: string; fbMessageId?: string }
-  | { kind: 'skipped'; reason: 'self_event' | 'empty_text' | 'no_match_no_ai' }
+  | { kind: 'replied'; source: 'RULE' | 'AI' | 'OOO'; reply: string; fbMessageId?: string }
+  | {
+      kind: 'skipped';
+      reason: 'self_event' | 'empty_text' | 'no_match_no_ai' | 'outside_working_hours';
+    }
   | { kind: 'error'; reason: string };
 
 /**
@@ -62,44 +70,77 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
     },
   });
 
-  const rules = await prisma.rule.findMany({
-    where: { tenantId: event.tenantId, enabled: true },
-    orderBy: { priority: 'desc' },
-  });
-
-  const match = findMatchingRule({
-    text,
-    channel: event.channel,
-    rules,
-    variables: {
-      name: event.customerName ?? '',
-      first_name: event.customerName?.split(' ')[0] ?? '',
+  // Out-of-office check. Done before rule/AI matching so an OOO reply takes
+  // precedence over both — the customer should always hear "we're closed,
+  // we'll get back to you" rather than the standard rule reply.
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: event.tenantId },
+    select: {
+      workingHoursEnabled: true,
+      timezone: true,
+      workingHours: true,
+      oooMessage: true,
     },
   });
 
   let replyText: string | null = null;
-  let source: 'RULE' | 'AI' | null = null;
+  let source: 'RULE' | 'AI' | 'OOO' | null = null;
   let matchedRuleId: string | null = null;
   let aiUsage: { model: string; promptTokens: number; completionTokens: number } | null = null;
 
-  if (match) {
-    replyText = match.rendered;
-    source = 'RULE';
-    matchedRuleId = match.rule.id;
-  } else {
-    const aiCfg = await prisma.aiConfig.findUnique({ where: { tenantId: event.tenantId } });
-    if (aiCfg?.enabled) {
-      const ai = await generateAiReply({
-        systemPrompt: aiCfg.systemPrompt,
-        userMessage: text,
-        model: aiCfg.model,
-        maxTokens: aiCfg.maxTokens,
-        temperature: aiCfg.temperature,
-      });
-      if (ai) {
-        replyText = ai.text;
-        source = 'AI';
-        aiUsage = { model: ai.model, promptTokens: ai.promptTokens, completionTokens: ai.completionTokens };
+  if (tenant?.workingHoursEnabled && tenant.workingHours) {
+    let outsideHours = false;
+    try {
+      const schedule = validateSchedule(tenant.workingHours as WorkingHoursSchedule);
+      outsideHours = !isWithinWorkingHours(schedule, tenant.timezone);
+    } catch (err) {
+      logger.warn({ err, tenantId: event.tenantId }, 'invalid_working_hours_config');
+    }
+    if (outsideHours) {
+      const ooo = (tenant.oooMessage ?? '').trim();
+      if (!ooo) {
+        return { kind: 'skipped', reason: 'outside_working_hours' };
+      }
+      replyText = ooo;
+      source = 'OOO';
+    }
+  }
+
+  if (!replyText) {
+    const rules = await prisma.rule.findMany({
+      where: { tenantId: event.tenantId, enabled: true },
+      orderBy: { priority: 'desc' },
+    });
+
+    const match = findMatchingRule({
+      text,
+      channel: event.channel,
+      rules,
+      variables: {
+        name: event.customerName ?? '',
+        first_name: event.customerName?.split(' ')[0] ?? '',
+      },
+    });
+
+    if (match) {
+      replyText = match.rendered;
+      source = 'RULE';
+      matchedRuleId = match.rule.id;
+    } else {
+      const aiCfg = await prisma.aiConfig.findUnique({ where: { tenantId: event.tenantId } });
+      if (aiCfg?.enabled) {
+        const ai = await generateAiReply({
+          systemPrompt: aiCfg.systemPrompt,
+          userMessage: text,
+          model: aiCfg.model,
+          maxTokens: aiCfg.maxTokens,
+          temperature: aiCfg.temperature,
+        });
+        if (ai) {
+          replyText = ai.text;
+          source = 'AI';
+          aiUsage = { model: ai.model, promptTokens: ai.promptTokens, completionTokens: ai.completionTokens };
+        }
       }
     }
   }
