@@ -182,7 +182,7 @@ The API will subscribe the page to webhooks for you.
 
 ## Phase 2 roadmap
 
-- [ ] Stripe / Paymob billing (subscription tiers, usage metering)
+- [x] Stripe billing — Free / Pro / Business tiers + monthly reply limits (see _Billing_ below)
 - [x] Team members + RBAC (OWNER / ADMIN / MEMBER)
 - [x] Encrypted-at-rest page access tokens (AES-256-GCM)
 - [~] Rate limiting (per-IP for auth, per-tenant outbound) — queueing with BullMQ + Redis is still future
@@ -193,6 +193,38 @@ The API will subscribe the page to webhooks for you.
 - [ ] Multi-language detection
 - [ ] Auto-DM ("we just sent you a private message")
 - [x] Privacy Policy + Terms + Data Deletion Instructions (see _Meta App Review prep_ below)
+
+### Billing (Stripe)
+
+Three subscription tiers ship out of the box. All limits are env-driven so you
+can change them without a code release:
+
+| Plan     | Price (default) | Replies / month | Connected pages |
+| -------- | --------------- | --------------- | --------------- |
+| Free     | $0              | 200             | 1               |
+| Pro      | $19             | 5,000           | 5               |
+| Business | $49             | unlimited       | unlimited       |
+
+Reply quotas reset on the 1st of each calendar month (UTC). Once a tenant hits
+their cap the auto-reply pipeline stops sending — incoming events still log
+inbound `ReplyEvent` rows so you can show the customer what they missed.
+A failed Graph call does **not** burn quota.
+
+To turn billing on:
+
+1. Create a Stripe account, then a Product with two recurring monthly Prices
+   (one for Pro, one for Business).
+2. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PRO`,
+   `STRIPE_PRICE_ID_BUSINESS` on the API (see `apps/api/.env.example`).
+3. Point the Stripe webhook at `https://<your-api>/api/webhooks/stripe` with
+   the events `checkout.session.completed`, `customer.subscription.created`,
+   `customer.subscription.updated`, `customer.subscription.deleted`.
+4. Tenants can self-serve upgrade / cancel from `/dashboard/billing` (Stripe
+   Checkout for new subscriptions, Customer Portal for everything else).
+
+If `STRIPE_SECRET_KEY` is empty the billing UI shows a "Stripe not configured"
+banner, the checkout/portal endpoints return `503`, and **plan limits are not
+enforced**. This keeps local dev frictionless.
 
 ### Email notifications
 

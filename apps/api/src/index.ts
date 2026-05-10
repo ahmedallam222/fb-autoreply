@@ -14,6 +14,8 @@ import { analyticsRouter } from './routes/analytics.js';
 import { workingHoursRouter } from './routes/working-hours.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { teamRouter } from './routes/team.js';
+import { billingRouter } from './routes/billing.js';
+import { stripeWebhookRouter } from './routes/stripe-webhook.js';
 import { startNotificationScheduler } from './services/notifications.js';
 
 const app = express();
@@ -32,9 +34,11 @@ app.use(
 );
 app.use(pinoHttp({ logger }));
 
-// Webhook router consumes its own raw-body parser so it must come BEFORE
-// the global JSON parser. Webhooks are signature-verified, never rate-limited.
+// Webhook routers consume their own raw-body parser so they must come BEFORE
+// the global JSON parser. Both webhooks are signature-verified, never
+// rate-limited.
 app.use('/api/webhooks', webhookRouter);
+app.use('/api/webhooks/stripe', stripeWebhookRouter);
 
 app.use(express.json({ limit: '1mb' }));
 
@@ -68,6 +72,7 @@ app.use('/api/analytics', apiLimiter, analyticsRouter);
 app.use('/api/working-hours', apiLimiter, workingHoursRouter);
 app.use('/api/notifications', apiLimiter, notificationsRouter);
 app.use('/api/team', apiLimiter, teamRouter);
+app.use('/api/billing', apiLimiter, billingRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'not_found', path: req.path });

@@ -16,6 +16,7 @@ const navItems = [
   { href: '/dashboard/working-hours', label: 'Working hours' },
   { href: '/dashboard/notifications', label: 'Notifications' },
   { href: '/dashboard/team', label: 'Team' },
+  { href: '/dashboard/billing', label: 'Billing' },
 ];
 
 interface MeResponse {

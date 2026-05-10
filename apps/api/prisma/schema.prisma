@@ -32,6 +32,15 @@ model Tenant {
   // Sent verbatim outside working hours. Empty/null = stay silent.
   oooMessage          String? @db.Text
 
+  // Subscription / billing. Every tenant starts on FREE. The Stripe IDs are
+  // null until the tenant first checks out. `subscriptionStatus` mirrors
+  // Stripe's status so we can quickly answer "is this tenant active?".
+  plan                       Plan      @default(FREE)
+  stripeCustomerId           String?   @unique
+  stripeSubscriptionId       String?   @unique
+  subscriptionStatus         String?
+  subscriptionCurrentPeriodEnd DateTime?
+
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -86,6 +95,12 @@ enum UserRole {
   OWNER
   ADMIN
   MEMBER
+}
+
+enum Plan {
+  FREE
+  PRO
+  BUSINESS
 }
 
 model FacebookPage {
