@@ -183,13 +183,13 @@ The API will subscribe the page to webhooks for you.
 ## Phase 2 roadmap
 
 - [ ] Stripe / Paymob billing (subscription tiers, usage metering)
-- [ ] Team members + RBAC (OWNER / ADMIN / MEMBER)
+- [x] Team members + RBAC (OWNER / ADMIN / MEMBER)
 - [x] Encrypted-at-rest page access tokens (AES-256-GCM)
 - [~] Rate limiting (per-IP for auth, per-tenant outbound) — queueing with BullMQ + Redis is still future
 - [x] Working hours / out-of-office (per-tenant timezone-aware schedule)
 - [x] Email notifications (error-spike alert + daily digest)
-- [ ] Per-rule analytics + conversation transcripts UI
-- [ ] App Review submission docs + screencast
+- [x] Per-rule analytics + conversation transcripts UI
+- [x] App Review submission docs + screencast (see [`docs/META_APP_REVIEW.md`](docs/META_APP_REVIEW.md))
 - [ ] Multi-language detection
 - [ ] Auto-DM ("we just sent you a private message")
 - [x] Privacy Policy + Terms + Data Deletion Instructions (see _Meta App Review prep_ below)
@@ -226,12 +226,16 @@ before you submit for review. The boilerplate already covers what Meta is lookin
 what data is stored, third-party processors (Meta + OpenAI), data subject rights,
 retention, and a deletion request flow.
 
-You will also need:
+You will also need a screencast, a use-case description per permission, and a test
+account for the reviewer. We ship those as ready-to-use docs:
 
-1. A short screencast (≤ 3 min) showing a real reply happening on a real page.
-2. A use-case description for each requested permission ("we use `pages_messaging` to
-   reply to inbound DMs on the user's behalf, only when triggered by an event").
-3. A test user account so Meta's reviewer can log in.
+- [**`docs/META_APP_REVIEW.md`**](docs/META_APP_REVIEW.md) — copy-paste
+  justifications for each permission, reviewer test plan, pre-submit checklist.
+- [**`docs/META_APP_REVIEW_SCREENCAST.md`**](docs/META_APP_REVIEW_SCREENCAST.md)
+  — a 90–180 second narration script + recording tips.
+- [**`docs/LAUNCH_CHECKLIST.md`**](docs/LAUNCH_CHECKLIST.md) — everything
+  else you need before paying customers can use the app (encryption keys,
+  managed Postgres, single-instance constraints, SMTP, etc.).
 
 ---
 
