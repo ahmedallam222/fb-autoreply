@@ -155,7 +155,9 @@ The API will subscribe the page to webhooks for you.
 | GET    | `/health`                             | —    | Health check                            |
 | POST   | `/api/auth/signup`                    | —    | Create tenant + first user              |
 | POST   | `/api/auth/login`                     | —    | Get JWT                                 |
-| GET    | `/api/auth/me`                        | yes  | Current user + tenant                   |
+| GET    | `/api/auth/me`                        | yes  | Current user + tenant (incl. `onboardedAt`) |
+| POST   | `/api/auth/complete-onboarding`       | yes  | Mark current tenant as onboarded        |
+| GET    | `/api/rules/templates`                | yes  | Preset rule templates for the wizard    |
 | GET    | `/api/pages`                          | yes  | List connected pages                    |
 | POST   | `/api/pages/manual`                   | yes  | Manual page connect                     |
 | GET    | `/api/pages/oauth/url`                | yes  | Begin OAuth                             |
@@ -189,7 +191,33 @@ The API will subscribe the page to webhooks for you.
 - [ ] App Review submission docs + screencast
 - [ ] Multi-language detection
 - [ ] Auto-DM ("we just sent you a private message")
-- [ ] Privacy Policy + Terms (required for App Review)
+- [x] Privacy Policy + Terms + Data Deletion Instructions (see _Meta App Review prep_ below)
+
+---
+
+## Meta App Review prep
+
+Before Meta will approve `pages_messaging`, `pages_manage_engagement`, etc. on a live
+page, they need three publicly accessible legal pages. We ship them by default — just
+fill in your real company name and contact email:
+
+| Page | Path | Where to set it on your Meta App |
+| --- | --- | --- |
+| Privacy Policy | [`/privacy`](apps/web/src/app/(legal)/privacy/page.tsx) | _App Settings → Basic → Privacy Policy URL_ |
+| Terms of Service | [`/terms`](apps/web/src/app/(legal)/terms/page.tsx) | _App Settings → Basic → Terms of Service URL_ |
+| Data Deletion Instructions | [`/data-deletion`](apps/web/src/app/(legal)/data-deletion/page.tsx) | _App Settings → Basic → User Data Deletion → Data Deletion Instructions URL_ |
+
+Edit the constants at the top of each file (`COMPANY`, `CONTACT_EMAIL`, `LAST_UPDATED`)
+before you submit for review. The boilerplate already covers what Meta is looking for:
+what data is stored, third-party processors (Meta + OpenAI), data subject rights,
+retention, and a deletion request flow.
+
+You will also need:
+
+1. A short screencast (≤ 3 min) showing a real reply happening on a real page.
+2. A use-case description for each requested permission ("we use `pages_messaging` to
+   reply to inbound DMs on the user's behalf, only when triggered by an event").
+3. A test user account so Meta's reviewer can log in.
 
 ---
 

@@ -63,6 +63,15 @@ export default function LoginPage() {
             Sign up
           </Link>
         </p>
+        <p className="text-xs text-slate-500 text-center">
+          <Link href="/privacy" className="underline hover:text-slate-700">
+            Privacy
+          </Link>{' '}
+          &middot;{' '}
+          <Link href="/terms" className="underline hover:text-slate-700">
+            Terms
+          </Link>
+        </p>
       </form>
     </main>
   );

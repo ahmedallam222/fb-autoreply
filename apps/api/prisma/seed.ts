@@ -6,8 +6,10 @@ const prisma = new PrismaClient();
 async function main() {
   const tenant = await prisma.tenant.upsert({
     where: { id: 'demo-tenant' },
-    update: {},
-    create: { id: 'demo-tenant', name: 'Demo Workspace' },
+    update: { onboardedAt: new Date() },
+    // Demo workspace skips the onboarding wizard since it already has
+    // pre-seeded rules + AI config.
+    create: { id: 'demo-tenant', name: 'Demo Workspace', onboardedAt: new Date() },
   });
 
   const passwordHash = await bcrypt.hash('demo1234', 10);
