@@ -49,6 +49,7 @@ rulesRouter.post('/', writeGate, async (req: Request, res: Response) => {
       responseTemplate: data.responseTemplate,
       priority: data.priority,
       cooldownSeconds: data.cooldownSeconds,
+      alsoDmOnComment: data.alsoDmOnComment,
     },
   });
   res.status(201).json({ rule });
@@ -85,6 +86,7 @@ rulesRouter.put('/:id', writeGate, async (req: Request, res: Response) => {
       responseTemplate: d.responseTemplate,
       priority: d.priority,
       cooldownSeconds: d.cooldownSeconds,
+      alsoDmOnComment: d.alsoDmOnComment,
     },
   });
   res.json({ rule });

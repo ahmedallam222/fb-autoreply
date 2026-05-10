@@ -3,7 +3,12 @@ import { prisma } from '../lib/prisma.js';
 import { logger } from '../config/logger.js';
 import { findMatchingRule } from '../lib/rules-engine.js';
 import { generateAiReply } from '../lib/openai-client.js';
-import { replyToComment, sendMessengerMessage, GraphApiError } from '../lib/facebook.js';
+import {
+  replyToComment,
+  sendMessengerMessage,
+  sendPrivateReplyToComment,
+  GraphApiError,
+} from '../lib/facebook.js';
 import { acquireOutboundSlot } from '../lib/rate-limiter.js';
 import { canSendReply } from '../lib/billing.js';
 import {
@@ -93,6 +98,11 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
   let source: 'RULE' | 'AI' | 'OOO' | null = null;
   let matchedRuleId: string | null = null;
   let aiUsage: { model: string; promptTokens: number; completionTokens: number } | null = null;
+  // Whether to ALSO send a Messenger private reply after a successful
+  // public comment reply. Set per-rule, with an AI-config fallback. OOO
+  // replies never trigger a private DM — the customer should hear our
+  // out-of-office message once, not twice.
+  let alsoDmOnComment = false;
 
   if (tenant?.workingHoursEnabled && tenant.workingHours) {
     let outsideHours = false;
@@ -132,6 +142,7 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
       replyText = match.rendered;
       source = 'RULE';
       matchedRuleId = match.rule.id;
+      alsoDmOnComment = match.rule.alsoDmOnComment;
     } else {
       const aiCfg = await prisma.aiConfig.findUnique({ where: { tenantId: event.tenantId } });
       if (aiCfg?.enabled) {
@@ -146,6 +157,7 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
           replyText = ai.text;
           source = 'AI';
           aiUsage = { model: ai.model, promptTokens: ai.promptTokens, completionTokens: ai.completionTokens };
+          alsoDmOnComment = aiCfg.alsoDmOnComment;
         }
       }
     }
@@ -178,6 +190,7 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
         conversationId: conversation.id,
         direction: 'OUTBOUND',
         source,
+        kind: event.channel === 'COMMENT' ? 'COMMENT' : 'MESSAGE',
         outboundText: replyText,
         matchedRuleId,
         errorMessage: 'rate_limited_outbound',
@@ -204,6 +217,7 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
         conversationId: conversation.id,
         direction: 'OUTBOUND',
         source,
+        kind: event.channel === 'COMMENT' ? 'COMMENT' : 'MESSAGE',
         outboundText: replyText,
         matchedRuleId,
         fbMessageId,
@@ -212,6 +226,48 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
         aiCompletionTokens: aiUsage?.completionTokens,
       },
     });
+
+    // Optional: also send a Messenger private reply after a successful
+    // comment reply. We do this best-effort — a failure here does NOT
+    // turn the whole event into an error, because the public reply
+    // already went out. We just log the failure and keep going.
+    if (event.channel === 'COMMENT' && alsoDmOnComment && source !== 'OOO') {
+      try {
+        const dm = await sendPrivateReplyToComment(
+          event.externalId,
+          replyText,
+          event.pageAccessToken,
+        );
+        await prisma.replyEvent.create({
+          data: {
+            conversationId: conversation.id,
+            direction: 'OUTBOUND',
+            source,
+            kind: 'PRIVATE_REPLY',
+            outboundText: replyText,
+            matchedRuleId,
+            fbMessageId: dm.id,
+          },
+        });
+      } catch (err) {
+        const msg = err instanceof GraphApiError ? err.message : (err as Error).message;
+        logger.warn(
+          { err: msg, commentId: event.externalId },
+          'private_reply_failed',
+        );
+        await prisma.replyEvent.create({
+          data: {
+            conversationId: conversation.id,
+            direction: 'OUTBOUND',
+            source,
+            kind: 'PRIVATE_REPLY',
+            outboundText: replyText,
+            matchedRuleId,
+            errorMessage: msg,
+          },
+        });
+      }
+    }
 
     return { kind: 'replied', source, reply: replyText, fbMessageId };
   } catch (err) {
@@ -222,6 +278,7 @@ export async function processInboundEvent(event: InboundEvent): Promise<AutoRepl
         conversationId: conversation.id,
         direction: 'OUTBOUND',
         source,
+        kind: event.channel === 'COMMENT' ? 'COMMENT' : 'MESSAGE',
         outboundText: replyText,
         matchedRuleId,
         errorMessage: msg,

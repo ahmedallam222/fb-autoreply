@@ -73,6 +73,33 @@ export async function replyToComment(
   });
 }
 
+/**
+ * Send a "Private Reply" — a Messenger DM in response to a comment on the
+ * Page's post. Meta's Graph API endpoint is
+ * `POST /{comment-id}/private_replies?message=...`.
+ *
+ * Constraints (per Meta docs, as of Graph API v21):
+ * - Must be sent within 7 days of the comment.
+ * - Only one private reply per comment.
+ * - Requires the `pages_messaging` permission on the page.
+ *
+ * The response contains both `id` (the Messenger message id, format
+ * `m_<mid>`) and `recipient_id` (the PSID of the commenter).
+ */
+export async function sendPrivateReplyToComment(
+  commentId: string,
+  message: string,
+  pageAccessToken: string,
+): Promise<{ id: string; recipient_id?: string }> {
+  return fbRequest<{ id: string; recipient_id?: string }>(
+    'POST',
+    `/${commentId}/private_replies`,
+    pageAccessToken,
+    undefined,
+    { message },
+  );
+}
+
 /** Send a Messenger message to a PSID using the standard messaging window. */
 export async function sendMessengerMessage(
   recipientPsid: string,

@@ -12,6 +12,7 @@ interface AiConfig {
   maxTokens: number;
   temperature: number;
   fallbackOnly: boolean;
+  alsoDmOnComment: boolean;
 }
 interface AiResponse {
   aiConfig: AiConfig | null;
@@ -26,6 +27,7 @@ const defaults: AiConfig = {
   maxTokens: 300,
   temperature: 0.7,
   fallbackOnly: true,
+  alsoDmOnComment: false,
 };
 
 export default function AiPage() {
@@ -114,6 +116,22 @@ export default function AiPage() {
             />
           </label>
         </div>
+
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={cfg.alsoDmOnComment}
+            onChange={(e) => setCfg({ ...cfg, alsoDmOnComment: e.target.checked })}
+            className="mt-1"
+          />
+          <span>
+            <span className="text-sm">Also send a private DM after every AI comment reply</span>
+            <span className="block text-xs text-slate-500">
+              When the AI fallback fires on a comment, also send the same text as a Messenger
+              DM. Only valid within 7 days of the comment (Meta limit).
+            </span>
+          </span>
+        </label>
 
         <div className="flex items-center gap-3">
           <button

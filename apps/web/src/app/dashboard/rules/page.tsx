@@ -17,6 +17,7 @@ interface Rule {
   responseTemplate: string;
   priority: number;
   caseSensitive: boolean;
+  alsoDmOnComment: boolean;
 }
 interface RulesResponse {
   rules: Rule[];
@@ -129,6 +130,7 @@ function RuleForm({
   const [matchType, setMatchType] = useState<MatchType>(initial?.matchType ?? 'CONTAINS');
   const [priority, setPriority] = useState(String(initial?.priority ?? 0));
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
+  const [alsoDmOnComment, setAlsoDmOnComment] = useState(initial?.alsoDmOnComment ?? false);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -148,6 +150,7 @@ function RuleForm({
       priority: parseInt(priority || '0', 10),
       enabled,
       caseSensitive: false,
+      alsoDmOnComment,
     };
     try {
       if (initial) {
@@ -210,6 +213,21 @@ function RuleForm({
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
         Enabled
+      </label>
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={alsoDmOnComment}
+          onChange={(e) => setAlsoDmOnComment(e.target.checked)}
+          className="mt-0.5"
+        />
+        <span>
+          Also send a private DM
+          <span className="block text-xs text-slate-500">
+            When this rule fires on a comment, also send the same text as a Messenger DM
+            to the commenter (Meta &ldquo;private replies&rdquo;, must be within 7 days of the comment).
+          </span>
+        </span>
       </label>
       <div className="flex gap-2">
         <button

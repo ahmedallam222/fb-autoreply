@@ -136,6 +136,10 @@ model Rule {
   responseTemplate String        @db.Text
   priority         Int           @default(0)
   cooldownSeconds  Int           @default(0)
+  // When true and the rule fires on a COMMENT, also send the same text as a
+  // private Messenger reply to the commenter (Meta "Private Replies" API).
+  // No-op for MESSAGE-channel matches — we're already in a DM thread.
+  alsoDmOnComment  Boolean       @default(false)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -167,6 +171,9 @@ model AiConfig {
   maxTokens     Int      @default(300)
   temperature   Float    @default(0.7)
   fallbackOnly  Boolean  @default(true)
+  // Tenant-wide default: when an AI reply fires on a COMMENT, also send a
+  // private Messenger reply via the Meta "Private Replies" API.
+  alsoDmOnComment Boolean @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -211,6 +218,9 @@ model ReplyEvent {
   conversationId     String
   direction          EventDirection
   source             ReplySource
+  // Distinguishes an outbound public comment reply from a Messenger DM
+  // from a private-reply-to-comment. Null on legacy rows.
+  kind               ReplyKind?
   inboundText        String?          @db.Text
   outboundText       String?          @db.Text
   matchedRuleId      String?
@@ -241,6 +251,12 @@ enum ReplySource {
   OOO
   MANUAL
   NONE
+}
+
+enum ReplyKind {
+  COMMENT
+  MESSAGE
+  PRIVATE_REPLY
 }
 
 model NotificationPreference {

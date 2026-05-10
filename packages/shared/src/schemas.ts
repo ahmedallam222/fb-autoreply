@@ -13,6 +13,9 @@ export const ruleSchema = z.object({
   responseTemplate: z.string().min(1, 'Response template is required').max(2000),
   priority: z.number().int().min(0).default(0),
   cooldownSeconds: z.number().int().min(0).default(0),
+  // When true and the rule fires on a COMMENT, also send the same text
+  // as a private Messenger reply. No-op for MESSAGE-channel matches.
+  alsoDmOnComment: z.boolean().default(false),
 });
 
 export type RuleInput = z.infer<typeof ruleSchema>;
@@ -27,6 +30,8 @@ export const aiConfigSchema = z.object({
   maxTokens: z.number().int().min(50).max(2000).default(300),
   temperature: z.number().min(0).max(2).default(0.7),
   fallbackOnly: z.boolean().default(true),
+  // Same idea as Rule.alsoDmOnComment, but for AI fallback replies.
+  alsoDmOnComment: z.boolean().default(false),
 });
 
 export type AiConfigInput = z.infer<typeof aiConfigSchema>;

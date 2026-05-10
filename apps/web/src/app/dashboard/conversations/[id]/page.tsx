@@ -7,11 +7,13 @@ import { swrFetcher } from '@/lib/api';
 
 type Direction = 'INBOUND' | 'OUTBOUND';
 type Source = 'RULE' | 'AI' | 'OOO' | 'MANUAL' | 'NONE';
+type Kind = 'COMMENT' | 'MESSAGE' | 'PRIVATE_REPLY';
 
 interface ReplyEvent {
   id: string;
   direction: Direction;
   source: Source;
+  kind: Kind | null;
   inboundText: string | null;
   outboundText: string | null;
   matchedRuleId: string | null;
@@ -74,7 +76,13 @@ function EventCard({ ev }: { ev: ReplyEvent }) {
         }`}
       >
         <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-slate-500 mb-1">
-          <span>{isInbound ? 'Customer' : 'Page reply'}</span>
+          <span>
+            {isInbound
+              ? 'Customer'
+              : ev.kind === 'PRIVATE_REPLY'
+              ? 'Page reply (private DM)'
+              : 'Page reply'}
+          </span>
           {!isInbound && (
             <span
               className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
@@ -82,6 +90,11 @@ function EventCard({ ev }: { ev: ReplyEvent }) {
               }`}
             >
               {SOURCE_LABEL[ev.source]}
+            </span>
+          )}
+          {ev.kind === 'PRIVATE_REPLY' && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-800">
+              private reply
             </span>
           )}
           {ev.errorMessage && (
