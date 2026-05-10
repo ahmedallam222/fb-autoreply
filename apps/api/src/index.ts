@@ -9,6 +9,7 @@ import { pagesRouter } from './routes/pages.js';
 import { rulesRouter } from './routes/rules.js';
 import { aiRouter } from './routes/ai.js';
 import { conversationsRouter } from './routes/conversations.js';
+import { analyticsRouter } from './routes/analytics.js';
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use('/api/pages', pagesRouter);
 app.use('/api/rules', rulesRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/conversations', conversationsRouter);
+app.use('/api/analytics', analyticsRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'not_found', path: req.path });
