@@ -2,8 +2,14 @@ import { Router, type Request, type Response } from 'express';
 import { ruleSchema } from '@fb-autoreply/shared';
 import type { RuleChannel, RuleMatchType } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../lib/auth.js';
+import { requireAuth, requireRole } from '../lib/auth.js';
 import { RULE_TEMPLATES } from '../lib/rule-templates.js';
+
+/**
+ * Writes (create/update/delete) require OWNER or ADMIN; reads are open to any
+ * authed tenant member. See apps/api/src/routes/team.ts for the role model.
+ */
+const writeGate = requireRole('OWNER', 'ADMIN');
 
 export const rulesRouter = Router();
 rulesRouter.use(requireAuth);
@@ -24,7 +30,7 @@ rulesRouter.get('/', async (req: Request, res: Response) => {
   res.json({ rules });
 });
 
-rulesRouter.post('/', async (req: Request, res: Response) => {
+rulesRouter.post('/', writeGate, async (req: Request, res: Response) => {
   const parsed = ruleSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'invalid_input', details: parsed.error.flatten() });
@@ -48,7 +54,7 @@ rulesRouter.post('/', async (req: Request, res: Response) => {
   res.status(201).json({ rule });
 });
 
-rulesRouter.put('/:id', async (req: Request, res: Response) => {
+rulesRouter.put('/:id', writeGate, async (req: Request, res: Response) => {
   const id = req.params.id;
   if (!id) {
     res.status(400).json({ error: 'missing_id' });
@@ -84,7 +90,7 @@ rulesRouter.put('/:id', async (req: Request, res: Response) => {
   res.json({ rule });
 });
 
-rulesRouter.delete('/:id', async (req: Request, res: Response) => {
+rulesRouter.delete('/:id', writeGate, async (req: Request, res: Response) => {
   const id = req.params.id;
   if (!id) {
     res.status(400).json({ error: 'missing_id' });

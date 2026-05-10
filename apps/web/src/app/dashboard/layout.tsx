@@ -19,7 +19,7 @@ const navItems = [
 ];
 
 interface MeResponse {
-  user: { email: string; name: string | null };
+  user: { email: string; name: string | null; role: 'OWNER' | 'ADMIN' | 'MEMBER' };
   tenant: { id: string; name: string; onboardedAt: string | null };
 }
 
@@ -74,7 +74,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           Logout
         </button>
       </aside>
-      <main className="flex-1 px-8 py-6">{children}</main>
+      <main className="flex-1 px-8 py-6">
+        {me?.user.role === 'MEMBER' && (
+          <div className="mb-4 px-4 py-2 rounded-md border border-amber-300 bg-amber-50 text-amber-900 text-sm">
+            You have <strong>read-only</strong> access. Ask an OWNER or ADMIN to make
+            changes to rules, AI, working hours, notifications, or pages.
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }

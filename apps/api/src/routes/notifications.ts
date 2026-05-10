@@ -1,12 +1,15 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../lib/auth.js';
+import { requireAuth, requireRole } from '../lib/auth.js';
 import { sendEmail, isMailerConfigured, verifyMailerConfig } from '../lib/mailer.js';
 import { logger } from '../config/logger.js';
 
 export const notificationsRouter = Router();
 notificationsRouter.use(requireAuth);
+
+/** Writes (and the test-email side-effect) require OWNER or ADMIN. */
+const writeGate = requireRole('OWNER', 'ADMIN');
 
 const putSchema = z.object({
   errorAlertsEnabled: z.boolean(),
@@ -32,7 +35,7 @@ notificationsRouter.get('/', async (req: Request, res: Response) => {
 });
 
 /** PUT — update preferences. */
-notificationsRouter.put('/', async (req: Request, res: Response) => {
+notificationsRouter.put('/', writeGate, async (req: Request, res: Response) => {
   const parsed = putSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'invalid_body', details: parsed.error.flatten() });
@@ -66,7 +69,7 @@ notificationsRouter.put('/', async (req: Request, res: Response) => {
 });
 
 /** POST /test — send a test email to the configured recipients. */
-notificationsRouter.post('/test', async (req: Request, res: Response) => {
+notificationsRouter.post('/test', writeGate, async (req: Request, res: Response) => {
   if (!isMailerConfigured()) {
     res.status(503).json({ error: 'smtp_not_configured' });
     return;
